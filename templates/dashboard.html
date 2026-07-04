@@ -321,16 +321,6 @@
 
     <div id="inventoryView">
 
-    <div class="panel notification-panel">
-        <div class="notification-header">
-            <h3>🔔 Trung tâm cảnh báo tồn kho</h3>
-            <span id="notificationCount" class="notification-count">0 cảnh báo</span>
-        </div>
-        <div id="notificationList" class="notification-list">
-            <div style="color:#94a3b8">Chưa có cảnh báo.</div>
-        </div>
-    </div>
-
     <div class="panel inventory-manage-card">
         <div class="inventory-manage-header">
             <div class="inventory-manage-title">
@@ -586,8 +576,6 @@ function renderNotifications(orders, toTimestamp) {
             toTimestamp(a.last_updated || a.timestamp)
         );
 
-    document.getElementById("notificationCount").textContent =
-        `${alerts.length} cảnh báo`;
     document.getElementById("pushNotificationBadge").textContent =
         alerts.length > 99 ? "99+" : alerts.length;
     document.getElementById("pushNotificationIcon").classList.toggle(
@@ -595,28 +583,6 @@ function renderNotifications(orders, toTimestamp) {
         alerts.length > 0
     );
     renderPushDropdown(alerts);
-
-    const list = document.getElementById("notificationList");
-    if (!alerts.length) {
-        list.innerHTML = '<div style="color:#94a3b8">Chưa có cảnh báo.</div>';
-        return;
-    }
-
-    list.innerHTML = alerts.slice(0, 20).map(order => `
-        <div class="notification-item ${
-            ["CRITICAL", "OUT_OF_STOCK"].includes(order.inventory_level)
-                ? "critical"
-                : ""
-        }">
-            <strong>🚨 ${order.alert || order.inventory_level}</strong><br>
-            ${order.order_id || "N/A"} · Kho ${order.warehouse_id || "N/A"} ·
-            SP ${order.product_id || "N/A"}<br>
-            <small>
-                Tồn: ${order.inventory ?? 0} · Dự báo: ${order.future_demand ?? 0} ·
-                Cần nhập: ${order.reorder_quantity ?? 0}
-            </small>
-        </div>
-    `).join("");
 }
 
 function renderPushDropdown(alerts) {
