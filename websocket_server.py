@@ -1,5 +1,6 @@
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
+import os
 import time
 from firebase_admin import db
 
@@ -207,15 +208,16 @@ def handle_inventory_update(data):
 if __name__ == "__main__":
     print("\n=================================")
     print("SMART LOGISTICS SOCKET SERVER")
-    print("http://127.0.0.1:8000")
+    port = int(os.environ.get("PORT", "8000"))
+    print(f"http://0.0.0.0:{port}")
     print("=================================\n")
 
     start_firebase_listener()
 
     socketio.run(
         app,
-        host="127.0.0.1",
-        port=8000,
+        host="0.0.0.0",
+        port=port,
         debug=False,
         use_reloader=False,
         allow_unsafe_werkzeug=True

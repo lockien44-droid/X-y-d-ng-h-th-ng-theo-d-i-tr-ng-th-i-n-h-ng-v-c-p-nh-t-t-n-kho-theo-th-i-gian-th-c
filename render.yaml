@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: smart-logistics
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class gthread --threads 8 --timeout 120 --bind 0.0.0.0:$PORT websocket_server:app
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FIREBASE_DATABASE_URL
+        value: https://smart-logistics-system-75a42-default-rtdb.asia-southeast1.firebasedatabase.app
+      - key: FIREBASE_CREDENTIAL_JSON
+        sync: false

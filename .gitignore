@@ -18,3 +18,8 @@ smart-logistics-system-*.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# Downloaded/generated data
+data/raw/kaggle/
+data/raw/kaggle_demand/
+data/processed/

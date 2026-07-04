@@ -12,7 +12,8 @@ from inventory_manager import (
     check_inventory,
     update_inventory,
     add_stock,
-    get_stock
+    get_stock,
+    set_stock
 )
 
 from firebase_manager import (
@@ -139,7 +140,7 @@ def main():
     try:
 
         df = pd.read_csv(
-            "data/smart_logistics_dataset.csv"
+            "data/processed/smart_logistics_runtime.csv"
         )
 
         df.fillna(
@@ -252,6 +253,8 @@ def main():
             try:
 
                 prediction = predict_demand(
+                    warehouse_id=warehouse_id,
+                    product_id=product_id,
                     inventory_quantity=inventory_qty,
                     order_quantity=order_qty,
                     daily_sales=daily_sales,
@@ -299,6 +302,13 @@ def main():
             # ==================================
 
             try:
+
+                # Initialize this simulation event from the Kaggle-derived
+                # inventory value before applying outbound/inbound movements.
+                set_stock(
+                    warehouse_id,
+                    inventory_qty
+                )
 
                 update_inventory(
                     warehouse_id,

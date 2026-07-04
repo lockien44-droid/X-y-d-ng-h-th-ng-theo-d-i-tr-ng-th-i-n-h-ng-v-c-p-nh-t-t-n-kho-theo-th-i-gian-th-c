@@ -20,6 +20,12 @@ def get_stock(warehouse_id):
     return warehouses.get(str(warehouse_id), 0)
 
 
+def set_stock(warehouse_id, quantity):
+    with inventory_lock:
+        warehouses[str(warehouse_id)] = safe_int(quantity)
+        return warehouses[str(warehouse_id)]
+
+
 # =========================
 # SAFE CONVERT
 # =========================

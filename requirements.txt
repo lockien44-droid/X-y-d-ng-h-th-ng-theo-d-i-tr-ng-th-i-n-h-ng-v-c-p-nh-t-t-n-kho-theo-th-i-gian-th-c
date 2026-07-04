@@ -8,3 +8,6 @@ Flask-SocketIO
 python-socketio
 requests
 matplotlib
+kagglehub
+gunicorn
+simple-websocket

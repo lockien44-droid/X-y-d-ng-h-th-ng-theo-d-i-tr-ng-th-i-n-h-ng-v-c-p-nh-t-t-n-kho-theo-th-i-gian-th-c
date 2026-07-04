@@ -1,3 +1,5 @@
+import json
+import os
 import time
 from datetime import datetime
 
@@ -7,9 +9,15 @@ from firebase_admin import credentials, db
 # ==============================
 # CONFIG
 # ==============================
-FIREBASE_CREDENTIAL = "smart-logistics-system-75a42-a699f876beef.json"
+FIREBASE_CREDENTIAL = os.environ.get(
+    "FIREBASE_CREDENTIAL_FILE",
+    "smart-logistics-system-75a42-a699f876beef.json"
+)
 
-DATABASE_URL = "https://smart-logistics-system-75a42-default-rtdb.asia-southeast1.firebasedatabase.app"
+DATABASE_URL = os.environ.get(
+    "FIREBASE_DATABASE_URL",
+    "https://smart-logistics-system-75a42-default-rtdb.asia-southeast1.firebasedatabase.app"
+)
 
 MAX_HISTORY = 20
 MAX_GPS_HISTORY = 50
@@ -20,7 +28,11 @@ MAX_EVENTS = 100
 # ==============================
 if not firebase_admin._apps:
     try:
-        cred = credentials.Certificate(FIREBASE_CREDENTIAL)
+        credential_json = os.environ.get("FIREBASE_CREDENTIAL_JSON")
+        if credential_json:
+            cred = credentials.Certificate(json.loads(credential_json))
+        else:
+            cred = credentials.Certificate(FIREBASE_CREDENTIAL)
         firebase_admin.initialize_app(cred, {
             "databaseURL": DATABASE_URL
         })

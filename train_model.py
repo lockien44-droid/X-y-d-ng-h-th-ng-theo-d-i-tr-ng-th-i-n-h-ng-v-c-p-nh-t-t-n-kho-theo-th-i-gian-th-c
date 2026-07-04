@@ -1,236 +1,119 @@
-import os
+from pathlib import Path
+
 import joblib
 import numpy as np
-
-from sklearn.model_selection import train_test_split
+import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import (
-    mean_absolute_error,
-    mean_squared_error,
-    r2_score
-)
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from data_preprocessing import preprocess_data
+from prepare_kaggle_data import OUTPUT_FILE, prepare_dataset
 
-# ==========================================
-# CREATE MODEL DIRECTORY
-# ==========================================
 
-os.makedirs(
-    "models",
-    exist_ok=True
-)
-
-# ==========================================
-# LOAD PREPROCESSED DATA
-# ==========================================
-
-df = preprocess_data()
-
-if df is None:
-    raise ValueError(
-        "Failed to load dataset."
-    )
-
-# ==========================================
-# FEATURES
-# ==========================================
+MODEL_PATH = Path("models/random_forest_model.pkl")
+FORECAST_HORIZON_DAYS = 7
 
 FEATURES = [
-    "inventory_quantity",
-    "order_quantity",
+    "warehouse_code",
+    "product_code",
     "daily_sales",
-    "incoming_stock",
-    "lead_time",
-    "vehicle_capacity",
-    "delivery_status",
-    "demand_ratio",
-    "inventory_pressure",
-    "stock_gap",
-    "days_of_stock",
-    "stock_after_order"
+    "sales_lag_1",
+    "sales_lag_7",
+    "sales_lag_14",
+    "sales_mean_7",
+    "sales_mean_30",
+    "day_of_week",
+    "month",
+    "is_weekend",
 ]
-
 TARGET = "future_demand"
 
-# Kiểm tra cột tồn tại
 
-missing_features = [
-    col
-    for col in FEATURES
-    if col not in df.columns
-]
+def load_training_data():
+    if not OUTPUT_FILE.exists():
+        prepare_dataset()
 
-if missing_features:
+    df = pd.read_csv(OUTPUT_FILE, parse_dates=["date"])
+    missing = [
+        column
+        for column in FEATURES + [TARGET, "date"]
+        if column not in df.columns
+    ]
+    if missing:
+        raise ValueError(f"Missing training columns: {missing}")
 
-    raise ValueError(
-        f"Missing features: {missing_features}"
+    df = df.sort_values("date").dropna(subset=FEATURES + [TARGET])
+    return df
+
+
+def train_model():
+    df = load_training_data()
+
+    unique_dates = np.sort(df["date"].unique())
+    cutoff_index = int(len(unique_dates) * 0.80)
+    cutoff_date = unique_dates[cutoff_index]
+
+    train_df = df[df["date"] < cutoff_date]
+    test_df = df[df["date"] >= cutoff_date]
+
+    X_train = train_df[FEATURES]
+    y_train = train_df[TARGET]
+    X_test = test_df[FEATURES]
+    y_test = test_df[TARGET]
+
+    model = RandomForestRegressor(
+        n_estimators=100,
+        max_depth=14,
+        min_samples_leaf=3,
+        random_state=42,
+        n_jobs=-1,
     )
 
-if TARGET not in df.columns:
+    print("[AI] Training Random Forest...")
+    print(f"[AI] Forecast horizon: {FORECAST_HORIZON_DAYS} days")
+    print(f"[AI] Train rows: {len(train_df):,}")
+    print(f"[AI] Test rows: {len(test_df):,}")
+    print(f"[AI] Time cutoff: {pd.Timestamp(cutoff_date).date()}")
 
-    raise ValueError(
-        f"Target column '{TARGET}' not found"
+    model.fit(X_train, y_train)
+    predictions = model.predict(X_test)
+
+    metrics = {
+        "mae": float(mean_absolute_error(y_test, predictions)),
+        "rmse": float(np.sqrt(mean_squared_error(y_test, predictions))),
+        "r2": float(r2_score(y_test, predictions)),
+    }
+
+    print("\n===== MODEL EVALUATION =====")
+    print(f"MAE  : {metrics['mae']:.2f}")
+    print(f"RMSE : {metrics['rmse']:.2f}")
+    print(f"R²   : {metrics['r2']:.4f}")
+
+    print("\n===== FEATURE IMPORTANCE =====")
+    for feature, score in sorted(
+        zip(FEATURES, model.feature_importances_),
+        key=lambda item: item[1],
+        reverse=True,
+    ):
+        print(f"{feature:<22} {score:.4f}")
+
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(
+        {
+            "model": model,
+            "features": FEATURES,
+            "forecast_horizon_days": FORECAST_HORIZON_DAYS,
+            "metrics": metrics,
+            "source": (
+                "Kaggle: talhanazir168/"
+                "store-inventory-demand-forecasting-dataset"
+            ),
+        },
+        MODEL_PATH,
     )
 
-# ==========================================
-# INPUT / OUTPUT
-# ==========================================
+    print(f"\n[AI] Model saved: {MODEL_PATH}")
+    return model, metrics
 
-X = df[FEATURES]
 
-y = df[TARGET]
-
-# ==========================================
-# TRAIN TEST SPLIT
-# ==========================================
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.20,
-    random_state=42
-)
-
-# ==========================================
-# MODEL
-# ==========================================
-
-model = RandomForestRegressor(
-    n_estimators=200,
-    max_depth=12,
-    random_state=42,
-    n_jobs=-1
-)
-
-# ==========================================
-# TRAINING
-# ==========================================
-
-print("\nTraining Random Forest Model...")
-
-model.fit(
-    X_train,
-    y_train
-)
-
-print("Training completed.")
-
-# ==========================================
-# PREDICTION
-# ==========================================
-
-y_pred = model.predict(
-    X_test
-)
-
-# ==========================================
-# EVALUATION
-# ==========================================
-
-mae = mean_absolute_error(
-    y_test,
-    y_pred
-)
-
-rmse = np.sqrt(
-    mean_squared_error(
-        y_test,
-        y_pred
-    )
-)
-
-r2 = r2_score(
-    y_test,
-    y_pred
-)
-
-print("\n===== MODEL EVALUATION =====")
-
-print(f"MAE  : {mae:.2f}")
-print(f"RMSE : {rmse:.2f}")
-print(f"R²   : {r2:.4f}")
-
-# ==========================================
-# DATASET INFO
-# ==========================================
-
-print("\n===== DATASET INFO =====")
-
-print(
-    f"Total Records : {len(df)}"
-)
-
-print(
-    f"Train Records : {len(X_train)}"
-)
-
-print(
-    f"Test Records  : {len(X_test)}"
-)
-
-# ==========================================
-# FEATURE IMPORTANCE
-# ==========================================
-
-print("\n===== FEATURE IMPORTANCE =====")
-
-importance = model.feature_importances_
-
-for feature, score in zip(
-    FEATURES,
-    importance
-):
-    print(
-        f"{feature:<20} {score:.4f}"
-    )
-
-# ==========================================
-# SAVE MODEL
-# ==========================================
-
-MODEL_PATH = (
-    "models/random_forest_model.pkl"
-)
-
-joblib.dump(
-    {
-        "model": model,
-        "features": FEATURES
-    },
-    MODEL_PATH
-)
-
-print("\nModel saved successfully.")
-
-print(
-    "Location:",
-    MODEL_PATH
-)
-
-print(
-    "File Size:",
-    os.path.getsize(
-        MODEL_PATH
-    ),
-    "bytes"
-)
-
-# ==========================================
-# SAMPLE TEST
-# ==========================================
-
-sample = X.iloc[[0]]
-
-prediction = model.predict(
-    sample
-)[0]
-
-print("\n===== SAMPLE PREDICTION =====")
-
-print(
-    "Predicted Future Demand:",
-    round(prediction)
-)
-
-print("\nDone.")
+if __name__ == "__main__":
+    train_model()

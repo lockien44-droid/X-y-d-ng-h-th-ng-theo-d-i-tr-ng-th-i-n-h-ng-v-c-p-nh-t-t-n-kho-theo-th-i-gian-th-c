@@ -1,22 +1,27 @@
 import os
+import re
 import joblib
 import pandas as pd
+from datetime import datetime
 
 MODEL_PATH = "models/random_forest_model.pkl"
 
 model = None
 
 FEATURE_COLUMNS = [
+    "warehouse_code",
+    "product_code",
     "inventory_quantity",
-    "order_quantity",
     "daily_sales",
     "incoming_stock",
-    "lead_time",
-    "delivery_status",
-    "vehicle_capacity",
-    "demand_ratio",
-    "inventory_pressure",
-    "stock_gap"
+    "sales_lag_1",
+    "sales_lag_7",
+    "sales_lag_14",
+    "sales_mean_7",
+    "sales_mean_30",
+    "day_of_week",
+    "month",
+    "is_weekend"
 ]
 
 # =====================================
@@ -107,19 +112,10 @@ def build_features(
     incoming_stock,
     lead_time,
     delivery_status,
-    vehicle_capacity
+    vehicle_capacity,
+    warehouse_id="0",
+    product_id="0"
 ):
-
-    delivery_status = {
-        "Pending": 0,
-        "Processing": 1,
-        "Shipping": 2,
-        "Delivered": 3,
-        "Cancelled": 4
-    }.get(
-        str(delivery_status),
-        0
-    )
 
     inventory_quantity = max(
         0,
@@ -163,32 +159,17 @@ def build_features(
         )
     )
 
-    demand_ratio = (
-        order_quantity /
-        (inventory_quantity + 1)
-    )
+    now = datetime.now()
 
-    estimated_demand = (
-         daily_sales *
-         lead_time
-)
-
-    inventory_pressure = (
-         inventory_quantity /
-         (estimated_demand + 1)
-)
-
-    stock_gap = (
-        incoming_stock -
-        order_quantity
-    )
+    def id_number(value):
+        match = re.search(r"\d+", str(value))
+        return float(match.group()) if match else 0.0
 
     return {
+        "warehouse_code": id_number(warehouse_id),
+        "product_code": id_number(product_id),
         "inventory_quantity":
             inventory_quantity,
-
-        "order_quantity":
-            order_quantity,
 
         "daily_sales":
             daily_sales,
@@ -196,23 +177,16 @@ def build_features(
         "incoming_stock":
             incoming_stock,
 
-        "lead_time":
-            lead_time,
-
-        "delivery_status":
-            delivery_status,
-
-        "vehicle_capacity":
-            vehicle_capacity,
-
-        "demand_ratio":
-            demand_ratio,
-
-        "inventory_pressure":
-            inventory_pressure,
-
-        "stock_gap":
-            stock_gap
+        # Cold-start defaults: the current daily sales value is used when
+        # a live system has not yet supplied product-level sales history.
+        "sales_lag_1": safe_number(daily_sales),
+        "sales_lag_7": safe_number(daily_sales),
+        "sales_lag_14": safe_number(daily_sales),
+        "sales_mean_7": safe_number(daily_sales),
+        "sales_mean_30": safe_number(daily_sales),
+        "day_of_week": now.weekday(),
+        "month": now.month,
+        "is_weekend": int(now.weekday() >= 5)
     }
 
 
@@ -292,7 +266,17 @@ def predict_demand(**kwargs):
             vehicle_capacity=kwargs.get(
                 "vehicle_capacity",
                 0
-            )
+            ),
+
+            warehouse_id=kwargs.get(
+                "warehouse_id",
+                0
+            ),
+
+            product_id=kwargs.get(
+                "product_id",
+                0
+            ),
         )
 
         # =========================

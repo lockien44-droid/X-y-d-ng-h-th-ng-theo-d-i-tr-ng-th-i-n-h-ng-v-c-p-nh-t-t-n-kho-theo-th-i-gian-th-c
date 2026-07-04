@@ -31,6 +31,14 @@ Không commit hoặc chia sẻ khóa Firebase lên GitHub.
 
 ## Chạy chương trình
 
+Tải và chuẩn hóa dữ liệu Kaggle, sau đó huấn luyện mô hình:
+
+```powershell
+py download_kaggle_data.py
+py prepare_kaggle_data.py
+py train_model.py
+```
+
 Terminal 1:
 
 ```powershell
