@@ -331,17 +331,6 @@
         </div>
     </div>
 
-    <div class="grid">
-        <div class="panel">
-            <h3>Phân bố trạng thái đơn hàng</h3>
-            <div class="chart-container"><div id="statusChart" class="mini-chart"></div></div>
-        </div>
-        <div class="panel">
-            <h3>Tồn kho vs Nhu cầu dự báo</h3>
-            <div class="chart-container"><div id="inventoryChart" class="mini-chart"></div></div>
-        </div>
-    </div>
-
     <div class="panel inventory-manage-card">
         <div class="inventory-manage-header">
             <div class="inventory-manage-title">
@@ -662,64 +651,6 @@ function renderPushDropdown(alerts) {
     }).join("");
 }
 
-// Khởi tạo Charts
-function renderStatusChart(statusCount) {
-    const container = document.getElementById("statusChart");
-    const colors = {
-        Pending: "#f97316",
-        Processing: "#3b82f6",
-        Shipping: "#eab308",
-        Delivered: "#22c55e",
-        Cancelled: "#ef4444"
-    };
-    const maxValue = Math.max(...Object.values(statusCount), 1);
-
-    container.innerHTML = Object.entries(statusCount).map(([label, value]) => `
-        <div class="bar-row">
-            <div class="bar-label">${label}</div>
-            <div class="bar-track">
-                <div class="bar-fill" style="width:${(value / maxValue) * 100}%; background:${colors[label] || "#38bdf8"}"></div>
-            </div>
-            <div class="bar-value">${value}</div>
-        </div>
-    `).join("");
-}
-
-function renderInventoryChart(orders) {
-    const container = document.getElementById("inventoryChart");
-    const maxValue = Math.max(
-        ...orders.flatMap(o => [Number(o.inventory) || 0, Number(o.future_demand) || 0]),
-        1
-    );
-
-    container.innerHTML = `
-        <div class="legend"><span class="inv">Tồn kho</span><span class="demand">Dự báo</span></div>
-        ${orders.map(o => {
-            const inventory = Number(o.inventory) || 0;
-            const demand = Number(o.future_demand) || 0;
-            return `
-                <div class="dual-row">
-                    <div class="dual-title">
-                        ${o.order_id || "N/A"} |
-                        Kho: <strong>${o.warehouse_id || "N/A"}</strong> |
-                        SP: ${o.product_id || "N/A"}
-                    </div>
-                    <div class="bar-row">
-                        <div class="bar-label">Tồn kho</div>
-                        <div class="bar-track"><div class="bar-fill" style="width:${(inventory / maxValue) * 100}%; background:#22c55e"></div></div>
-                        <div class="bar-value">${inventory}</div>
-                    </div>
-                    <div class="bar-row">
-                        <div class="bar-label">Dự báo</div>
-                        <div class="bar-track"><div class="bar-fill" style="width:${(demand / maxValue) * 100}%; background:#f59e0b"></div></div>
-                        <div class="bar-value">${demand}</div>
-                    </div>
-                </div>
-            `;
-        }).join("")}
-    `;
-}
-
 // Nút Tạm Dừng
 document.getElementById('pauseBtn').addEventListener('click', () => {
     isPaused = !isPaused;
@@ -746,7 +677,6 @@ function renderDashboard(data) {
 
     let totalOrders = 0, normalStock = 0, lowStock = 0;
     let criticalStock = 0, outOfStock = 0, reorder = 0, totalInv = 0;
-    const statusCount = { Pending:0, Processing:0, Shipping:0, Delivered:0, Cancelled:0 };
 
     const toTimestamp = value => {
         if (typeof value === "number") return value;
@@ -816,7 +746,6 @@ function renderDashboard(data) {
         totalInv += Number(o.inventory || 0);
 
         if (o.reorder_required === true) reorder++;
-        if (statusCount[o.status] !== undefined) statusCount[o.status]++;
 
         let statusClass = "ok";
         const level = String(
@@ -907,10 +836,7 @@ else if (
     document.getElementById("tabCriticalCount").innerText = criticalStock;
     document.getElementById("tabOutCount").innerText = outOfStock;
 
-    const recent = displayOrders.slice(0, 10).reverse();
     renderNotifications(allOrders, toTimestamp);
-    renderStatusChart(statusCount);
-    renderInventoryChart(recent);
 }
 
 function getStatusColor(status) {
